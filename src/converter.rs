@@ -750,7 +750,7 @@ mod re_tests {
 
     #[test]
     fn test_page_inclusions() {
-        // Regex::new(r#"^[(?<label>)]\(\./(?<path>.*)\)$"#).unwrap();
+        // r#"^[(?<label>)]\(\./(?<path>.*)\)$"#
         let page_label = "This should be ignored";
         let raw_page_path = "a_linked/page";
         let md_page_path = format!("{}.md", raw_page_path);
