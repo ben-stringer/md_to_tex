@@ -7,6 +7,9 @@ use std::io::{self, BufRead};
 
 // Constant values; must be loaded lazily because they can panic (only if the regex is bad)
 lazy_static! {
+    static ref RE_LINK_TO_LOCAL: Regex =
+        Regex::new(r#"^\[(?<label>.+)]\(\./(?<path>.+).md\)$"#).unwrap();
+     // Regex::new(r#"^\[(?<label>.+)]\(\./(?<link>.+)\)$"#).unwrap();
     static ref RE_CHAPTER_HEADER: Regex =
         Regex::new(r#"^## (\[]\{#(?<label>.+)\})?(?<head>.*)$"#).unwrap();
     static ref RE_SECTION_HEADER: Regex =
@@ -418,6 +421,9 @@ fn process_line_text(line: &str) -> Result<(State, String), Error> {
         // Line is a top-level heading; treat it as a comment
         // There should only be one top-level heading per markdown anyway
         Ok((State::Text, String::new()))
+    } else if let Some(cap) = RE_LINK_TO_LOCAL.captures(trimmed) {
+        let path = cap.name("path").expect("Should not fail to get a path if the regex captures");
+        Ok((State::Text, format!("\\input{{{}}}\n", path.as_str())))
     } else if let Some(cap) = RE_SUBSUBSECTION_HEADER.captures(trimmed) {
         let mut text = format!("\\subsubsection{{{}}}", &cap["head"]);
         if let Some(l) = cap.name("label").map(|m| m.as_str()) {
@@ -740,5 +746,34 @@ mod re_tests {
             let processed = simple_string_process(&test_str);
             assert!(processed == expected_str);
         }
+    }
+
+    #[test]
+    fn test_page_inclusions() {
+        // Regex::new(r#"^[(?<label>)]\(\./(?<path>.*)\)$"#).unwrap();
+        let page_label = "This should be ignored";
+        let raw_page_path = "a_linked/page";
+        let md_page_path = format!("{}.md", raw_page_path);
+        let page_link = format!("[{}](./{})", page_label, md_page_path);
+        let expected_text = format!("\\input{{{}}}\n", raw_page_path);
+
+        let o_cap = RE_LINK_TO_LOCAL.captures(&page_link);
+        assert!(o_cap.is_some());
+        let cap = o_cap.unwrap();
+
+        let o_label = cap.name("label");
+        assert!(o_label.is_some());
+        assert!(o_label.unwrap().as_str() == page_label);
+
+        let o_path = cap.name("path");
+        assert!(o_path.is_some());
+        assert!(o_path.unwrap().as_str() == raw_page_path);
+
+        let processed = process_line_text(&page_link);
+        assert!(processed.is_ok());
+        let (state, import) = processed.ok().unwrap();
+        assert!(state == State::Text);
+        assert!(import == expected_text);
+
     }
 }
