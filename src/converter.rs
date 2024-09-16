@@ -9,7 +9,6 @@ use std::io::{self, BufRead};
 lazy_static! {
     static ref RE_LINK_TO_LOCAL: Regex =
         Regex::new(r#"^\[(?<label>.+)]\(\./(?<path>.+).md\)$"#).unwrap();
-     // Regex::new(r#"^\[(?<label>.+)]\(\./(?<link>.+)\)$"#).unwrap();
     static ref RE_CHAPTER_HEADER: Regex =
         Regex::new(r#"^## (\[]\{#(?<label>.+)\})?(?<head>.*)$"#).unwrap();
     static ref RE_SECTION_HEADER: Regex =
@@ -72,6 +71,7 @@ enum State {
     TableHeader,
     TableBody(bool),
     TableCaption,
+    Literal,
     Text,
     FootnoteBody,
 }
@@ -91,6 +91,7 @@ impl State {
             State::TableHeader => process_line_table_header(line),
             State::TableBody(line_every_row) => process_line_table_body(line, *line_every_row),
             State::TableCaption => process_line_table_caption(line),
+            State::Literal => process_literal(line),
             State::FootnoteBody => process_footnote_body(line),
             State::Text => process_line_text(line),
         }
@@ -405,6 +406,13 @@ fn process_line_table_caption(line: &str) -> Result<(State, String), Error> {
         Ok((State::TableCaption, caption))
     }
 }
+fn process_literal(line: &str) -> Result<(State, String), Error> {
+    if line.is_empty() {
+        Ok((State::Text, "".to_owned()))
+    } else {
+        Ok((State::Literal, format!("{}\n", line)))
+    }
+}
 fn process_footnote_body(line: &str) -> Result<(State, String), Error> {
     if line.is_empty() {
         Ok((State::Text, "}\n\n".to_owned()))
@@ -454,6 +462,8 @@ fn process_line_text(line: &str) -> Result<(State, String), Error> {
         Ok((State::Text, text))
     } else if trimmed == "|figure" {
         Ok((State::Figure, "\\begin{figure}\n".to_owned()))
+    } else if trimmed == "|literal" {
+        Ok((State::Literal, "".to_owned()))
     } else if trimmed.starts_with('|') {
         // Test for table must follow test for figure since both start with a pipe
         if !trimmed.ends_with('|') {
