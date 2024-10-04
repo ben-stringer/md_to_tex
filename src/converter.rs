@@ -31,6 +31,7 @@ lazy_static! {
     static ref RE_FOOTNOTE_BODY: Regex = Regex::new(r#"^\[\^(?<mark>.+?)](?<body>.+?)$"#).unwrap();
     static ref RE_COMMENT: Regex = Regex::new(r#"<!--(.*)-->"#).unwrap();
     static ref RE_LINE_COMMENT: Regex = Regex::new(r#"^<!--(.*)-->$"#).unwrap();
+    static ref RE_NUM_EQUATION: Regex = Regex::new(r#"^\$\$<!--(?<label>.+)-->$"#).unwrap();
 }
 /// Main entry point of the md processor.
 /// Note that this function does not actually process a single line of text.
@@ -74,6 +75,8 @@ enum State {
     Literal,
     Text,
     FootnoteBody,
+    NumberedEquation,
+    UnnumberedEquation,
 }
 
 impl State {
@@ -94,6 +97,8 @@ impl State {
             State::Literal => process_literal(line),
             State::FootnoteBody => process_footnote_body(line),
             State::Text => process_line_text(line),
+            State::UnnumberedEquation => process_unnumbered_equation_text(line),
+            State::NumberedEquation => process_numbered_equation_text(line),
         }
     }
 }
@@ -420,6 +425,20 @@ fn process_footnote_body(line: &str) -> Result<(State, String), Error> {
         Ok((State::FootnoteBody, simple_string_process(line)))
     }
 }
+fn process_unnumbered_equation_text(line: &str) -> Result<(State, String), Error> {
+    if line == "$$" {
+        Ok((State::Text, "\\end{equation*}".to_owned()))
+    } else {
+        Ok((State::UnnumberedEquation, line.to_owned()))
+    }
+}
+fn process_numbered_equation_text(line: &str) -> Result<(State, String), Error> {
+    if line == "$$" {
+        Ok((State::Text, "\\end{equation}".to_owned()))
+    } else {
+        Ok((State::NumberedEquation, line.to_owned()))
+    }
+}
 fn process_line_text(line: &str) -> Result<(State, String), Error> {
     let trimmed = line.trim();
     if trimmed.is_empty() {
@@ -430,7 +449,9 @@ fn process_line_text(line: &str) -> Result<(State, String), Error> {
         // There should only be one top-level heading per markdown anyway
         Ok((State::Text, String::new()))
     } else if let Some(cap) = RE_LINK_TO_LOCAL.captures(trimmed) {
-        let path = cap.name("path").expect("Should not fail to get a path if the regex captures");
+        let path = cap
+            .name("path")
+            .expect("Should not fail to get a path if the regex captures");
         Ok((State::Text, format!("\\input{{{}}}\n", path.as_str())))
     } else if let Some(cap) = RE_SUBSUBSECTION_HEADER.captures(trimmed) {
         let mut text = format!("\\subsubsection{{{}}}", &cap["head"]);
@@ -571,6 +592,13 @@ fn process_line_text(line: &str) -> Result<(State, String), Error> {
         body.push_str(&simple_string_process(&cap["body"]));
         body.push_str("\n");
         Ok((State::FootnoteBody, body))
+    } else if trimmed == "$$" {
+        Ok((State::UnnumberedEquation, "\\begin{equation*}\n".to_owned()))
+    } else if let Some(cap) = RE_NUM_EQUATION.captures(trimmed) {
+        let mut body = "\\begin{equation}\\label{".to_owned();
+        body.push_str(&cap["label"]);
+        body.push_str("}\n");
+        Ok((State::NumberedEquation, body))
     } else if let Some(_) = RE_LINE_COMMENT.captures(trimmed) {
         // If we have a line comment, and strip it out using simple string process,
         // we end up with a blank line in the latex, which signals a new paragraph.
@@ -784,6 +812,17 @@ mod re_tests {
         let (state, import) = processed.ok().unwrap();
         assert!(state == State::Text);
         assert!(import == expected_text);
+    }
 
+    #[test]
+    fn test_equations() {
+        let eqn_line = r#"$$<!--eq:test-->"#;
+        let o_cap = RE_NUM_EQUATION.captures(&eqn_line);
+        assert!(o_cap.is_some());
+        let cap = o_cap.unwrap();
+        let o_label = cap.name("label");
+        assert!(o_label.is_some());
+        let label_text = o_label.unwrap();
+        assert!(label_text.as_str() == "eq:test");
     }
 }
