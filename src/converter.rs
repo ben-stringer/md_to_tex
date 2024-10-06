@@ -484,8 +484,14 @@ fn process_line_text(line: &str) -> Result<(State, String), Error> {
         }
         text.push('\n');
         Ok((State::Text, text))
-    } else if trimmed == "|figure" {
-        Ok((State::Figure, "\\begin{figure}\n".to_owned()))
+    } else if trimmed.starts_with("|figure") {
+        let mut text = "\\begin{figure}".to_owned();
+        let optional = trimmed.strip_prefix("|figure").unwrap().trim();
+        if !optional.is_empty() {
+            text.push_str(&format!("[{}]", optional));
+        }
+        text.push_str("\n");
+        Ok((State::Figure, text))
     } else if trimmed == "|literal" {
         Ok((State::Literal, "".to_owned()))
     } else if trimmed.starts_with('|') {
