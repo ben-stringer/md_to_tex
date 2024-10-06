@@ -32,6 +32,9 @@ lazy_static! {
     static ref RE_COMMENT: Regex = Regex::new(r#"<!--(.*)-->"#).unwrap();
     static ref RE_LINE_COMMENT: Regex = Regex::new(r#"^<!--(.*)-->$"#).unwrap();
     static ref RE_NUM_EQUATION: Regex = Regex::new(r#"^\$\$<!--(?<label>.+)-->$"#).unwrap();
+    static ref RE_CODE_HERE: Regex = Regex::new(r#"```(?<lang>.+)"#).unwrap();
+    static ref RE_CODE_FLOAT: Regex =
+        Regex::new(r#"```(?<lang>.+)<!--(?<label>.+)--><!--(?<caption>.+)-->"#).unwrap();
 }
 /// Main entry point of the md processor.
 /// Note that this function does not actually process a single line of text.
@@ -535,9 +538,19 @@ fn process_line_text(line: &str) -> Result<(State, String), Error> {
         );
         table.push_str(" \\\\\n");
         Ok((State::TableHeader, table))
-    } else if trimmed.starts_with("```") {
-        // Found a code fence.  May or may not have a language associated with it
-        let lang = trimmed.trim_start_matches("```");
+    } else if let Some(cap) = RE_CODE_FLOAT.captures(trimmed) {
+        let mut listing = "\\begin{lstlisting}".to_owned();
+        let lang = cap.name("lang").map_or("ERROR", |m| m.as_str().trim());
+        let label = cap.name("label").map_or("ERROR", |m| m.as_str().trim());
+        let caption = cap.name("caption").map_or("ERROR", |m| m.as_str().trim());
+        listing.push_str(&format!(
+            "[\n\tstyle={},\n\tlanguage={},\n\tlabel={},\n\tcaption={{{}}},\n\tfloat]",
+            lang, lang, label, caption
+        ));
+        listing.push('\n');
+        Ok((State::Code, listing))
+    } else if let Some(cap) = RE_CODE_HERE.captures(trimmed) {
+        let lang = cap.name("lang").map_or("ERROR", |m| m.as_str().trim());
         let mut listing = "\\begin{lstlisting}".to_owned();
         if !lang.is_empty() {
             listing.push_str(&format!("[style={},language={}]", lang, lang));
@@ -824,5 +837,31 @@ mod re_tests {
         assert!(o_label.is_some());
         let label_text = o_label.unwrap();
         assert!(label_text.as_str() == "eq:test");
+    }
+
+    #[test]
+    fn test_code_regex() {
+        let code_line = r#"```python<!--lst:test--><!--Hello World, this is a caption!-->"#;
+        let o_cap = RE_CODE_FLOAT.captures(&code_line);
+        assert!(o_cap.is_some());
+        let cap = o_cap.unwrap();
+
+        let o_lang = cap.name("lang");
+        assert!(o_lang.is_some());
+        let lang_text = o_lang.unwrap();
+        println!("{}", lang_text.as_str());
+        assert!(lang_text.as_str() == "python");
+
+        let o_label = cap.name("label");
+        assert!(o_label.is_some());
+        let label_text = o_label.unwrap();
+        println!("{}", label_text.as_str());
+        assert!(label_text.as_str() == "lst:test");
+
+        let o_caption = cap.name("caption");
+        assert!(o_caption.is_some());
+        let caption_text = o_caption.unwrap();
+        println!("{}", caption_text.as_str());
+        assert!(caption_text.as_str() == "Hello World, this is a caption!");
     }
 }
