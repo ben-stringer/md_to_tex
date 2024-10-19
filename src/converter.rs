@@ -26,7 +26,7 @@ lazy_static! {
     static ref RE_MONO_FONT: Regex = Regex::new(r#"`(?<mono>.+?)`"#).unwrap();
     static ref RE_SINGLE_QUOTE: Regex = Regex::new(r#"'(?<quote>.+?)'"#).unwrap();
     static ref RE_DOUBLE_QUOTE: Regex = Regex::new(r#""(?<quote>.+?)""#).unwrap();
-    static ref RE_EMPH_FONT: Regex = Regex::new(r#"_(?<emph>.+?)_"#).unwrap();
+    static ref RE_EMPH_FONT: Regex = Regex::new(r#"[^\\]_(?<emph>.+?)[^\\]_"#).unwrap();
     static ref RE_FOOTNOTE_REF: Regex = Regex::new(r#"\[\^(?<mark>.+?)]"#).unwrap();
     static ref RE_FOOTNOTE_BODY: Regex = Regex::new(r#"^\[\^(?<mark>.+?)](?<body>.+?)$"#).unwrap();
     static ref RE_COMMENT: Regex = Regex::new(r#"<!--(.*)-->"#).unwrap();
@@ -649,7 +649,7 @@ mod re_tests {
     use super::*;
 
     #[test]
-    fn test_all() {
+    fn test_all_headers() {
         let v: Vec<(&str, &Regex)> = vec![
             ("##", &RE_CHAPTER_HEADER),
             ("###", &RE_SECTION_HEADER),
@@ -884,5 +884,14 @@ mod re_tests {
         let caption_text = o_caption.unwrap();
         println!("{}", caption_text.as_str());
         assert!(caption_text.as_str() == "Hello World, this is a caption!");
+    }
+
+    #[test]
+    fn test_escaped_underscore() {
+        let is_emph = "This text _is_ emph!";
+        let not_emph = "This code \\_is not\\_ emph.";
+
+        assert!(RE_EMPH_FONT.is_match(is_emph));
+        assert!(!RE_EMPH_FONT.is_match(not_emph));
     }
 }
