@@ -416,7 +416,7 @@ fn process_line_table_caption(line: &str) -> Result<(State, String), Error> {
 }
 fn process_literal(line: &str) -> Result<(State, String), Error> {
     if line.is_empty() {
-        Ok((State::Text, "".to_owned()))
+        Ok((State::Text, "\n".to_owned()))
     } else {
         Ok((State::Literal, format!("{}\n", line)))
     }
@@ -495,7 +495,7 @@ fn process_line_text(line: &str) -> Result<(State, String), Error> {
     } else if trimmed == "|literal" {
         Ok((State::Literal, "".to_owned()))
     } else if trimmed.starts_with('|') {
-        // Test for table must follow test for figure since both start with a pipe
+        // Test for table must follow test for figure and literal since both start with a pipe
         if !trimmed.ends_with('|') {
             // It's easier to barf than handle this case right now
             bail!("Unexpected line ending for table.  The line starts with '|' but does not end with '|'.\n{}", line);
@@ -563,6 +563,14 @@ fn process_line_text(line: &str) -> Result<(State, String), Error> {
         }
         listing.push('\n');
         Ok((State::Code, listing))
+    } else if line.starts_with('`') {
+        let mut text = RE_MONO_FONT
+            .replace_all(&line, |cap: &Captures| {
+                format!(r"\texttt{{{}}}", &cap["mono"])
+            })
+            .to_string();
+        text.push_str("\n");
+        Ok((State::Text, text))
     } else if trimmed.starts_with("> ") {
         // Start of a quote environment
         // TODO: What about quotes that start with four spaces?
@@ -608,7 +616,14 @@ fn process_line_text(line: &str) -> Result<(State, String), Error> {
         let mut body = "\\footnotetext[".to_owned();
         body.push_str(&cap["mark"]);
         body.push_str("]{\n");
-        body.push_str(&simple_string_process(&cap["body"]));
+        body.push_str(
+            if let Some(link_cap) = RE_LINK.captures(&cap["body"]) {
+                format!(r"\url{{{}}}", &link_cap["link"])
+            } else {
+                simple_string_process(&cap["body"])
+            }
+            .as_str(),
+        );
         body.push_str("\n");
         Ok((State::FootnoteBody, body))
     } else if trimmed == "$$" {
