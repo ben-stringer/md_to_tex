@@ -26,7 +26,7 @@ lazy_static! {
     static ref RE_MONO_FONT: Regex = Regex::new(r#"`(?<mono>.+?)`"#).unwrap();
     static ref RE_SINGLE_QUOTE: Regex = Regex::new(r#"'(?<quote>.+?)'"#).unwrap();
     static ref RE_DOUBLE_QUOTE: Regex = Regex::new(r#""(?<quote>.+?)""#).unwrap();
-    static ref RE_EMPH_FONT: Regex = Regex::new(r#"[^\\]_(?<emph>.+?)[^\\]_"#).unwrap();
+    static ref RE_EMPH_FONT: Regex = Regex::new(r#"[^\\]_(?<emph>.+?[^\\])_"#).unwrap();
     static ref RE_FOOTNOTE_REF: Regex = Regex::new(r#"\[\^(?<mark>.+?)]"#).unwrap();
     static ref RE_FOOTNOTE_BODY: Regex = Regex::new(r#"^\[\^(?<mark>.+?)](?<body>.+?)$"#).unwrap();
     static ref RE_COMMENT: Regex = Regex::new(r#"<!--(.*)-->"#).unwrap();
