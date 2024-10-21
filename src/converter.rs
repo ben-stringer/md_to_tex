@@ -550,8 +550,8 @@ fn process_line_text(line: &str) -> Result<(State, String), Error> {
         let label = cap.name("label").map_or("ERROR", |m| m.as_str().trim());
         let caption = cap.name("caption").map_or("ERROR", |m| m.as_str().trim());
         listing.push_str(&format!(
-            "[\n\tstyle={},\n\tlanguage={},\n\tlabel={},\n\tcaption={{{}}},\n\tfloat]",
-            lang, lang, label, caption
+            "[\n\tstyle={},\n\tlabel={},\n\tcaption={{{}}},\n\tfloat]",
+            lang, label, caption
         ));
         listing.push('\n');
         Ok((State::Code, listing))
@@ -559,7 +559,7 @@ fn process_line_text(line: &str) -> Result<(State, String), Error> {
         let lang = cap.name("lang").map_or("ERROR", |m| m.as_str().trim());
         let mut listing = "\\begin{lstlisting}".to_owned();
         if !lang.is_empty() {
-            listing.push_str(&format!("[style={},language={}]", lang, lang));
+            listing.push_str(&format!("[style={}]", lang));
         }
         listing.push('\n');
         Ok((State::Code, listing))
