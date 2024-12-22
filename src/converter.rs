@@ -20,7 +20,7 @@ lazy_static! {
     static ref RE_TABLE_HEADER: Regex = Regex::new(r#"(<!--(?<desc>.+)-->)?(?<label>.*)"#).unwrap();
     static ref RE_START_ENUMERATE: Regex = Regex::new(r#"^[0-9]+\. (?<item>.+)$"#).unwrap();
     static ref RE_START_ITEMIZE: Regex = Regex::new(r#"^[*+-] (?<item>.+)$"#).unwrap();
-    static ref RE_LINK: Regex = Regex::new(r#"\[(?<text>.+)]\((?<link>.+)\)"#).unwrap();
+    static ref RE_LINK: Regex = Regex::new(r#"\[(?<text>.*)]\((?<link>.+)\)"#).unwrap();
     static ref RE_SUPERSCRIPT: Regex = Regex::new(r#"\^(?<super>.+?)\^"#).unwrap();
     static ref RE_BOLD_FONT: Regex = Regex::new(r#"\*(?<bold>.+?)\*"#).unwrap();
     static ref RE_MONO_FONT: Regex = Regex::new(r#"`(?<mono>.+?)`"#).unwrap();
